@@ -10,10 +10,15 @@ def server(params, opt, world):
     flat_grad = _flatten_dense_tensors([p.grad for p in params]).contiguous() #usage: tranfer a list tensor to one 1-D tensor
     ##here, you should generate one big 1-D tensor containing all parameters to make the transfer process easy
     agg = flat_grad.clone() #agg as a aggregated counter to record sum gradients
-
+    tmp = torch.zeros_like(agg) 
     #                                                                   #
     #                                                                   #
     # your code here: receive gradients form worker, and add them to agg#
+    tmp = torch.zeros_like(agg) 
+    for rank in range(1,world):
+        dist.recv(tensor=tmp, src=rank)
+        agg += tmp
+    agg /= world
     #                                                                   #
     #                                                                   #
 
@@ -28,16 +33,21 @@ def server(params, opt, world):
     #                                                                   #
     #                                                                   #
     # your code here: send packed 1-D parameter tensor to all workers   #
+    for rank in range(1,world):
+        dist.send(tensor=flat_param, dst=rank)
     #                                                                   #
     #                                                                   #
 
 def worker(params):
     flat_grad = _flatten_dense_tensors([p.grad for p in params]).contiguous()
     # ---- push grads to server ----
+    dist.send(flat_grad, dst=0)
 
     #                                                                   #
     #                                                                   #
     # your code here: send packed 1-D gradient to server
+    recv_buffer = torch.zeros_like(flat_grad)
+    dist.recv(tensor=recv_buffer, src=0)
     #                                                                   #
     #                                                                   #
 
