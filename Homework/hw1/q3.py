@@ -93,7 +93,9 @@ def ring_allreduce_(tensor: torch.Tensor, world_size = None, rankid = None):
     tmp = torch.zeros_like(chunks[0])
     reduced_chunk = reduce_scatter(chunks, tmp, world, rank, left, right)
     gathered_chunks = all_gather(chunks, tmp, reduced_chunk, world, rank, left, right)
-    flat.copy_(torch.cat(gathered_chunks)[:n])
+    gathered_chunks = gathered_chunks[:n].contiguous()
+    flat = gathered_chunks
+    # flat.copy_(torch.cat(gathered_chunks)[:n])
     #
     #                                                                   #
     #                                                                   #
