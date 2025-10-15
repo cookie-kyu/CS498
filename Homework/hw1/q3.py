@@ -106,67 +106,40 @@
 #     flat /= world
 #     tensor.view(-1).copy_(flat[:n])
 #     return
+from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 import torch
 import torch.distributed as dist
 
-def reduce_scatter(chunks, tmp, world, rank, left, right, debug=False):
-    """
-    Counter-clockwise reduce-scatter (defensive):
-    On step s (0..world-2) receive chunk (rank - s - 1) from right,
-    add it into our local slot for that chunk index, then send chunk (rank - s)
-    to left (but clone the send buffer to avoid aliasing).
-    """
-    for s in range(world - 1):
-        send_idx = (rank - s) % world
-        recv_idx = (rank - s - 1) % world
+def reduce_scatter(chunks, tmp, world, rank, left, right):
+    """Reduce-scatter phase (counter-clockwise communication)."""
+    for i in range(world - 1):
+        send_idx = (rank - i) % world
+        recv_idx = (rank - i - 1) % world
 
-        # post irecv into tmp and wait
-        recv_req = dist.irecv(tensor=tmp, src=right)
+        send_req = dist.isend(tensor=chunks[send_idx], dst=right)
+        recv_req = dist.irecv(tensor=tmp, src=left)
         recv_req.wait()
-        if debug:
-            print(f"[rank {rank}] reduce_scatter step {s} recv into tmp for idx {recv_idx}")
-
-        # accumulate received data into the slot recv_idx
-        chunks[recv_idx].add_(tmp)
-
-        # prepare send buffer (clone to avoid modification while sending)
-        send_buf = chunks[send_idx].clone()
-        send_req = dist.isend(tensor=send_buf, dst=left)
         send_req.wait()
-        if debug:
-            print(f"[rank {rank}] reduce_scatter step {s} sent cloned chunk {send_idx} to {left}")
+
+        chunks[recv_idx] += tmp  # Accumulate received partial sum
 
 
-def all_gather(chunks, tmp, world, rank, left, right, debug=False):
-    """
-    Counter-clockwise all-gather (defensive):
-    On step s (0..world-2) receive chunk (rank - s - 1) from right,
-    place it into chunks[recv_idx], then send chunk (rank - s) to left (send a clone).
-    """
-    for s in range(world - 1):
-        send_idx = (rank - s) % world
-        recv_idx = (rank - s - 1) % world
+def all_gather(chunks, tmp, world, rank, left, right):
+    """All-gather phase (counter-clockwise communication)."""
+    for i in range(world - 1):
+        send_idx = (rank - i - 1) % world
+        recv_idx = (rank - i - 2) % world
 
-        recv_req = dist.irecv(tensor=tmp, src=right)
+        send_req = dist.isend(tensor=chunks[send_idx], dst=right)
+        recv_req = dist.irecv(tensor=tmp, src=left)
         recv_req.wait()
-        if debug:
-            print(f"[rank {rank}] all_gather step {s} recv into tmp for idx {recv_idx}")
+        send_req.wait()
 
-        # place received data
         chunks[recv_idx].copy_(tmp)
 
-        # send cloned buffer
-        send_buf = chunks[send_idx].clone()
-        send_req = dist.isend(tensor=send_buf, dst=left)
-        send_req.wait()
-        if debug:
-            print(f"[rank {rank}] all_gather step {s} sent cloned chunk {send_idx} to {left}")
 
-
-def ring_allreduce_(tensor: torch.Tensor, world_size=None, rankid=None, debug=False):
-    """
-    In-place ring all-reduce (sum then average). Defensive with clones.
-    """
+def ring_allreduce_(tensor: torch.Tensor, world_size=None, rankid=None):
+    """In-place ring all-reduce (sum and average) using point-to-point communication."""
     world = world_size
     if world == 1:
         return tensor
@@ -175,31 +148,21 @@ def ring_allreduce_(tensor: torch.Tensor, world_size=None, rankid=None, debug=Fa
 
     flat = tensor.contiguous().view(-1)
     n = flat.numel()
-    chunk = (n + world - 1) // world  # ceil division
-    pad_len = chunk * world - n
+    chunk = (n + world - 1) // world
 
-    if pad_len > 0:
-        padded_flat = torch.cat([flat, torch.zeros(pad_len, dtype=flat.dtype, device=flat.device)])
-    else:
-        padded_flat = flat
+    # Pad to make chunks evenly sized
+    padded_size = chunk * world
+    padded_flat = torch.cat([flat, torch.zeros(padded_size - n, device=flat.device)])
+    chunks = [padded_flat[i * chunk:(i + 1) * chunk] for i in range(world)]
 
-    # Create independent chunk tensors (cloned) so we can safely modify them
-    chunks = [padded_flat[i * chunk:(i + 1) * chunk].clone() for i in range(world)]
-    tmp = torch.empty_like(chunks[0])
+    tmp = torch.zeros_like(chunks[0])
 
-    # Optional debug: ensure shapes consistent across ranks
-    if debug and rank == 0:
-        print(f"[rank {rank}] n={n}, chunk={chunk}, pad_len={pad_len}, world={world}")
+    # Phase 1: Reduce-Scatter
+    reduce_scatter(chunks, tmp, world, rank, left, right)
 
-    # REDUCE-SCATTER
-    reduce_scatter(chunks, tmp, world, rank, left, right, debug=debug)
+    # Phase 2: All-Gather
+    all_gather(chunks, tmp, world, rank, left, right)
 
-    # After reduce-scatter, chunk index == rank contains the sum across ranks for that chunk.
-    # ALL-GATHER
-    all_gather(chunks, tmp, world, rank, left, right, debug=debug)
-
-    # stitch back and unpad
-    result = torch.cat(chunks)
-    result /= float(world)   # average; remove if you only want SUM
-    tensor.view(-1).copy_(result[:n])
+    # Combine and average
+    flat.copy_(torch.cat(chunks)[:n] / world)
     return tensor
