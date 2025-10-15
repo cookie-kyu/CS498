@@ -9,6 +9,18 @@ def reduce_scatter(chunks, tmp, world, rank, left, right):
     #                                                                   #
     #                                                                   #
     # your code here: follow slides instruction: do counter-clockwise iteration
+    # for i in range(world - 1):
+    #     send_idx = (rank - i) % world
+    #     dest_idx = (rank - i - 1) % world
+
+    #     sbuf = chunks[send_idx].clone()
+
+    #     send_req = dist.isend(sbuf, dst=left)
+    #     dist.irecv(tmp, src=right)
+    #     #send_req.wait()
+    #     chunks[dest_idx] += tmp
+
+    # return chunks[rank]
     for i in range(world - 1):
         send_idx = (rank - i) % world
         dest_idx = (rank - i - 1) % world
@@ -16,10 +28,11 @@ def reduce_scatter(chunks, tmp, world, rank, left, right):
         sbuf = chunks[send_idx].clone()
 
         send_req = dist.isend(sbuf, dst=left)
-        dist.irecv(tmp, src=right)
+        recv_req = dist.irecv(tmp, src=right)
+        recv_req.wait()
         send_req.wait()
-        chunks[dest_idx] += tmp
 
+        chunks[dest_idx] += tmp
     return chunks[rank]
     #                                                                   #
     #                                                                   #
