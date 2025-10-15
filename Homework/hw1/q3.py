@@ -124,7 +124,7 @@ def reduce_scatter(chunks, tmp, world, rank, left, right):
         chunks[recv_idx] += tmp 
 
 
-def all_gather(chunks, tmp, current,  world, rank, left, right):
+def all_gather(chunks, tmp, world, rank, left, right):
     """All-gather phase (counter-clockwise communication)."""
     for i in range(world - 1):
         send_idx = (rank - i - 1) % world
