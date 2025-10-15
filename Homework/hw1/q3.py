@@ -112,45 +112,49 @@ import torch.distributed as dist
 
 def reduce_scatter(chunks, tmp, world, rank, left, right):
     """
-    Ring Reduce-Scatter phase:
-    Each rank reduces chunks by passing them counter-clockwise.
+    Reduce-Scatter (counter-clockwise):
+    On step s (0..world-2) send chunk (rank - s) to left and receive chunk (rank - s - 1) from right.
+    After receiving, accumulate into the local chunk that will eventually belong to us.
     """
-    for i in range(world - 1):
-        # which chunk to send
-        send_chunk_idx = (rank - i) % world
-        recv_chunk_idx = (rank - i - 1) % world
+    for s in range(world - 1):
+        send_idx = (rank - s) % world
+        recv_idx = (rank - s - 1) % world
 
-        send_req = dist.isend(chunks[send_chunk_idx], dst=left)
-        recv_req = dist.irecv(tmp, src=right)
+        # post recv then send to avoid simple deadlocks
+        recv_req = dist.irecv(tensor=tmp, src=right)
+        send_req = dist.isend(tensor=chunks[send_idx], dst=left)
+
         recv_req.wait()
+        # accumulate received data into the chunk that we are responsible for
+        chunks[recv_idx].add_(tmp)
         send_req.wait()
 
-        # accumulate received data into the correct chunk
-        chunks[recv_chunk_idx] += tmp
 
-
-def all_gather(chunks, tmp, current, world, rank, left, right):
+def all_gather(chunks, tmp, world, rank, left, right):
     """
-    Ring All-Gather phase:
-    After reduce-scatter, each rank has one reduced chunk. Circulate it
-    counter-clockwise so everyone gets all reduced chunks.
+    All-Gather (counter-clockwise):
+    After reduce-scatter each rank holds the reduced chunk for index `rank`.
+    Now circulate chunks so each rank collects all reduced chunks.
+    On step s (0..world-2) send chunk (rank - s) to left and receive chunk (rank - s - 1) from right,
+    then place the received chunk into its correct slot.
     """
-    for i in range(world - 1):
-        send_chunk_idx = (rank - i) % world
-        recv_chunk_idx = (rank - i - 1) % world
+    for s in range(world - 1):
+        send_idx = (rank - s) % world
+        recv_idx = (rank - s - 1) % world
 
-        send_req = dist.isend(chunks[send_chunk_idx], dst=left)
-        recv_req = dist.irecv(tmp, src=right)
+        recv_req = dist.irecv(tensor=tmp, src=right)
+        send_req = dist.isend(tensor=chunks[send_idx], dst=left)
+
         recv_req.wait()
+        # copy received chunk into appropriate slot
+        chunks[recv_idx].copy_(tmp)
         send_req.wait()
-
-        # store received chunk in the right place
-        chunks[recv_chunk_idx].copy_(tmp)
 
 
 def ring_allreduce_(tensor: torch.Tensor, world_size=None, rankid=None):
     """
-    In-place ring all-reduce using only send/recv (no dist.all_reduce).
+    In-place ring all-reduce (sum then divide by world_size to get average).
+    Uses only isend/irecv; no dist.allreduce.
     """
     world = world_size
     if world == 1:
@@ -158,25 +162,33 @@ def ring_allreduce_(tensor: torch.Tensor, world_size=None, rankid=None):
     rank = rankid
     left, right = (rank - 1) % world, (rank + 1) % world
 
-    # Flatten and pad to make divisible by world size
     flat = tensor.contiguous().view(-1)
     n = flat.numel()
     chunk = (n + world - 1) // world  # ceil division
 
+    # pad so n == chunk * world
     pad_len = chunk * world - n
-    padded_flat = torch.cat([flat, torch.zeros(pad_len, dtype=flat.dtype, device=flat.device)])
+    if pad_len > 0:
+        padded_flat = torch.cat([flat, torch.zeros(pad_len, dtype=flat.dtype, device=flat.device)])
+    else:
+        padded_flat = flat
 
-    chunks = [padded_flat[i*chunk:(i+1)*chunk] for i in range(world)]
+    # create views for each chunk (these are views into padded_flat)
+    chunks = [padded_flat[i * chunk:(i + 1) * chunk].clone() for i in range(world)]
+    # .clone() ensures each chunk is an independent buffer we can modify safely.
+
     tmp = torch.empty_like(chunks[0])
 
-    # Reduce-Scatter phase
+    # REDUCE-SCATTER: each rank will end with the reduced data for chunk index == rank
     reduce_scatter(chunks, tmp, world, rank, left, right)
 
-    # All-Gather phase
-    all_gather(chunks, tmp, chunks[rank], world, rank, left, right)
+    # ALL-GATHER: circulate reduced chunks so every rank gets all chunks
+    all_gather(chunks, tmp, world, rank, left, right)
 
-    # Reconstruct final tensor
-    flat = torch.cat(chunks)
-    flat /= world
-    tensor.view(-1).copy_(flat[:n])
+    # stitch result and unpad
+    result = torch.cat(chunks)
+    # average
+    result /= float(world)
+
+    tensor.view(-1).copy_(result[:n])
     return tensor
