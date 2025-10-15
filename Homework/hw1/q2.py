@@ -39,29 +39,20 @@ def server(params, opt, world):
     #                                                                   #
 
 def worker(params):
+    # ---- flatten local gradients ----
     flat_grad = _flatten_dense_tensors([p.grad for p in params]).contiguous()
-    # ---- push grads to server ----
-    dist.send(flat_grad, dst=0)
 
-    #                                                                   #
-    #                                                                   #
-    # your code here: send packed 1-D gradient to server
+    # ---- send gradients to the server ----
+    dist.send(tensor=flat_grad, dst=0)
+
+    # ---- receive updated flattened parameters from the server ----
     recv_buffer = torch.zeros_like(flat_grad)
     dist.recv(tensor=recv_buffer, src=0)
-    #                                                                   #
-    #                                                                   #
 
-    # ---- receive updated params, write into local model ----
-    
-    #                                                                   #
-    #                                                                   #
-    # your code here: please get correct 1-D packed parameter from server
-    #           And then unpacked it and store in synced_params
-    #                                                                   #
-    synced_params = None #you should  assign correct value for synced_params#
+    # ---- unflatten parameter tensor into model parameters ----
+    synced_params = _unflatten_dense_tensors(recv_buffer, [p.data for p in params])
 
-
-    # ---- syncronize the parameters ----
+    # ---- synchronize the local parameters ----
     for p, s in zip(params, synced_params):
         p.data.copy_(s)
 
