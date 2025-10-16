@@ -1,0 +1,42 @@
+1. head hidden dimension: 768/12 = 64
+
+2. Assume that we have a sequence length of s tokens, what is the per-token time-
+complexity of self-attention using the KV-cache?
+It would be O(s), since each new token would need to apply attention to the s chached key/values
+
+3. During DeepSeek V3 training the optimizer/master states were stored in BF16 for tracking AdamW moments.
+
+Q4. (2 points) Given a transformer with L = 61 layers, h = 128 heads per layer, and dk = 128 head
+dimension, what is the total number of kv cache entries per token when using MHA and MQA.
+
+MHA: each layer stores K and V for every head -> per token entries = 
+
+2*L*h*dk=2*61*128*128=1,998,848 kv-cache entries per token.
+
+MQA: per token entries:
+
+2*L*dk=2*61*128=15,616 kv-cache entries per token.
+
+Q5. (4 points) Given a standard MHA architecture with L = 64 layers, dmodel = 8192 model hidden
+dimension, h = 32 heads per layer, dk = 256 head dimension, and ntokens = 65536, what is
+the total number of parameters and memory required to store the weights in bf16, assuming
+an MLP up-down projection factor of 4? Exclude biases, layernorm, and positional encoding
+parameters. Focus primarily on the token embeddings, attention, and MLP modules
+
+Token embeddings: 
+V×d model =65,536*8,192=536,870,912 params
+
+Attention (per layer): projections 
+WQ,WK,WV,WO ≈ 4×8192^2=268,435,456 params.
+
+MLP (per layer): two matrices 
+8×8192^2 = 36,870,912 params.
+
+Per-layer total = attention + MLP = 
+268,435,456 + 536,870,912=805,306,368
+
+All transformer layers total = 
+L* per-layer = 64* 805,306,368
+= 52,076,478,464 parameters total
+
+If 2 bytes per parameter, we need 2* 52,076,478,464 = 104.15 GB

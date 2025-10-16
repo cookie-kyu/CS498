@@ -36,6 +36,8 @@ def all_gather(chunks, tmp, world, rank, left, right):
         send_req.wait()
 
         chunks[recv_idx].copy_(tmp)
+    #                                                                   #
+    return
 
 
 def ring_allreduce_(tensor: torch.Tensor, world_size=None, rankid=None):
