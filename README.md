@@ -37,7 +37,7 @@ Note that this course is **NOT focused on AI methods**.  Instead, we will *focus
 | Sept 12    | Tensor Parallelism                                     | Fan Lai       | [Slides](./Slides/L6_tensor_parallelism.pdf)        |   [LlamaRL](https://arxiv.org/abs/2505.24034)             |
 | Sept 17    | Pipeline Parallelism                                   | Fan Lai       | [Slides](./Slides/L7_pipeline_parallelism.pdf)         |      |
 | Sept 19    | Multi‑Dimensional Parallelism                          | Fan Lai       | [Slides](./Slides/L8_Multi_Parallelism.pdf)        |   [Alpa](https://www.usenix.org/system/files/osdi22-zheng-lianmin.pdf)                 |
-| Sept 24    | Mixed Precision Training                               | Fan Lai       | [Slides](./Slides/L9_mixed_precision_training.pdf)        |    [Assignment 1 Release](./Homework/hw1/Assignment1.pdf)                    |
+| Sept 24    | Mixed Precision Training                               | Fan Lai       | [Slides](./Slides/L9_mixed_precision_training.pdf)        |    [Assignment 1 Released](./Homework/hw1/Assignment1.pdf)                    |
 | Sept 26    | **No Class** (Meetings to discuss project ideas)                                    | Fan Lai       |        |                     |
 | Oct 1      | Memory Optimization                                   | Fan Lai       |      [Slides](./Slides/L10_training_memory_opt.pdf)  |  Project Proposal Due                     |
 | Oct 3      | Finetuning Techniques                       |   Fan Lai     |   [Slides](./Slides/L11_fine_tuning_techniques.pdf)     |   	[ZeRO-style Data Parallelism](https://arxiv.org/abs/1910.02054)				     |
@@ -45,19 +45,19 @@ Note that this course is **NOT focused on AI methods**.  Instead, we will *focus
 | Oct 10     | Course Project Proposal Feedback                       | Fan Lai       |        |                        |
 | Oct 15     | Course Project Proposal Feedback                      |  Fan Lai             |        |     Assignment 1 Due                   |
 | Oct 17     | Efficient Machine Learning for Intelligent Machines (Guest Lecture)                                          |  Chenfeng Xu             |        |                        |
-| Oct 22     | Inference Overview                                     | Fan Lai       |        |   [Speculative Decoding](https://arxiv.org/abs/2211.17192) |
-| Oct 24     | Batch Serving Techniques                               | Fan Lai       |        |   [DistServe](https://arxiv.org/abs/2401.09670)            |
-| Oct 29     | Paged Attention                                        | Fan Lai       |        |    [SGLang](https://arxiv.org/abs/2312.07104)                     |
-| Oct 31     | Adaptive KV                                            | Fan Lai       |        |    Assignment 2 Release            |
-| Nov 5      | Quantization                                           | Fan Lai       |        |   [AWQ](https://arxiv.org/abs/2306.00978)                  |
-| Nov 7      |  LLM Inference Scheduling                          | Fan Lai       |        |    Mid-semester Report Due            |			
-| Nov 12     | Advanced topics: RAG Systems                               | Fan Lai       |        |    [MoonCake](https://www.usenix.org/conference/fast25/presentation/qin)             |
-| Nov 14     | Advanced topics: Caching GenAI                         | Fan Lai       |        |  [NIAVANA](https://www.usenix.org/conference/nsdi24/presentation/agarwal-shubham)      |
-| Nov 19     | Buffer                                    			  |       |        |       Assignment 2 Due                 |
-| Nov 21     | Guest Lecture                                          |               |        |                        |
+| Oct 22     | Inference Overview                                     | Fan Lai       | [Slides](./Slides/L12_inference_overview.pdf)        |   [Speculative Decoding](https://arxiv.org/abs/2211.17192) |
+| Oct 24     | Batch Serving Techniques                               | Fan Lai       | [Slides](./Slides/L13_inference_scheduling.pdf)        |   [DistServe](https://arxiv.org/abs/2401.09670)            |
+| Oct 29     | Paged Attention                                        | Fan Lai       | [Slides](./Slides/L14_paged_attention.pdf)         |    [SGLang](https://arxiv.org/abs/2312.07104)                     |
+| Oct 31     | Adaptive KV                                            | Fan Lai       | [Slides](./Slides/L15_adaptive_kv.pdf)         |    Assignment 2 Released            |
+| Nov 5      | Quantization                                           | Fan Lai       | [Slides](./Slides/L16_quantization.pdf)        |   [AWQ](https://arxiv.org/abs/2306.00978)                  |
+| Nov 7      |  MoE Efficiency                          			| Fan Lai       | [Slides](./Slides/L17_moe_efficiency.pdf)       |    Mid-semester Report Due            |			
+| Nov 12     | Advanced topics: RAG Systems                               | Fan Lai       | [Slides](./Slides/L18_RAG.pdf)        |    [MoonCake](https://www.usenix.org/conference/fast25/presentation/qin)             |
+| Nov 14     | Advanced topics: Caching GenAI                         | Yifan Yu       |        |  [NIAVANA](https://www.usenix.org/conference/nsdi24/presentation/agarwal-shubham)      |
+| Nov 19     | Guest Lecture                                   			  |  Zhengzhong Tu     |        |       Assignment 2 Due,  Assignment 3 Released (for 4-credit students)                |
+| Nov 21     |     Course Project Feedback                            |   Fan Lai           |        |                        |
 | Nov 22-30  | Fall Break                                             |               |        |                        |
 | Dec 3      | Final Presentations                                    |               |        |                        |
-| Dec 5      | Final Presentations                                    |               |        |                        |
+| Dec 5      | Final Presentations                                    |               |        |     Assignment 3 Due                   |
 | Dec 10     | Final Presentations                                    |               |        |                        |
 | Dec 19     | No Class                                       |               |        | Final Report Due                        |
 
@@ -69,7 +69,7 @@ Note that this course is **NOT focused on AI methods**.  Instead, we will *focus
 | ------------------------| :------| 
 | [Attendance](#required-reading)           | 10%    | 
 | [Panel Discussion](#Post-Lecture-Panel-Discussion)           | 6% (3% + 3%)    | 
-| Lab assignments     | 20% (2 lab assignments, 10% each)    | 
+| Lab assignments     | 20% (2-3 lab assignments)    | 
 | [Reading summary](#paper-summary)           | 24% (opt-in 8 out of 10 readings, 3% each)    | 
 | [Final project presentation](#project)          | 15%    | 
 | [Project report](#project)   | 25% (5% + 5% + 15%)    |
